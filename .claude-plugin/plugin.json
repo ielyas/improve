@@ -1,13 +1,20 @@
 {
   "name": "improve",
-  "description": "Point it at a codebase and it figures out what's worth doing — bugs, perf, tech debt, what to build next — then writes plans any agent can execute. It can hand the work to a cheaper model and review the result. It never edits your code.",
-  "version": "1.0.0",
+  "description": "Point it at a codebase and it figures out what's worth doing \u2014 bugs, perf, tech debt, what to build next \u2014 then writes plans any agent can execute. It can hand the work to a cheaper model and review the result. It never edits your code.",
+  "version": "1.1.0",
   "author": {
     "name": "shadcn",
     "url": "https://twitter.com/shadcn"
   },
-  "homepage": "https://github.com/shadcn/improve",
-  "repository": "https://github.com/shadcn/improve",
+  "homepage": "https://github.com/ielyas/improve",
+  "repository": "https://github.com/ielyas/improve",
   "license": "MIT",
-  "keywords": ["audit", "code-review", "planning", "agents", "tech-debt", "security"]
+  "keywords": [
+    "audit",
+    "code-review",
+    "planning",
+    "agents",
+    "tech-debt",
+    "security"
+  ]
 }

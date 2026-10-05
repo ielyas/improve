@@ -1,5 +1,7 @@
 # Closing the Loop — execute, reconcile, issues
 
+For several plans at once, see [orchestrate.md](orchestrate.md); its Leads apply this file's dispatch, review and verdict rules per plan step.
+
 The advisor's job doesn't end at the plan. This file covers the three follow-through flows: dispatching an executor and reviewing its work (`execute`), keeping the plan backlog alive (`reconcile`), and publishing plans where work gets picked up (`--issues`).
 
 The founding rule survives unchanged: **the advisor never edits source code.** In `execute`, a *separate executor subagent* edits code in an isolated git worktree; the advisor dispatches, reviews, and renders a verdict — like a tech lead who doesn't push commits to your branch.
@@ -10,13 +12,21 @@ The founding rule survives unchanged: **the advisor never edits source code.** I
 
 ### Preconditions (check all before dispatching)
 
-- The repo is a git repository (worktree isolation requires it). If not: stop and say so.
+- The repo is a git repository (the executor's worktree requires it). If not: stop and say so.
 - The plan file exists and its dependencies show DONE in `plans/README.md`. If not: stop, name the missing dependency.
 - Run the plan's drift check yourself. If in-scope files changed since `Planned at`, reconcile the plan first (see below) — don't hand a stale plan to an executor.
 
 ### Dispatch
 
-Spawn **one** `general-purpose` subagent with `isolation: "worktree"`. Executor model: default `sonnet`; use what the user named if they named one (`execute 003 haiku`).
+Executor model: default `sonnet` (Sonnet 5.5); use what the user named if they named one (`execute 003 haiku`).
+
+**Make the worktree yourself** — `isolation: "worktree"` has lost its working-directory context mid-run and always branches from the default branch, not the one holding the plans:
+
+```
+git worktree add <repo-parent>/<repo>-NNN -b advisor/NNN-<slug> <current branch>
+```
+
+Then spawn **one** plain `general-purpose` subagent (no `isolation`) told to work only in that absolute path: prefix every command with `cd <worktree> &&`, use the project's isolated build/test commands from its hooks (`rules/parallel-runs.md`, if present), and touch nothing outside the worktree. Before creating the worktree, check `git worktree list` and `git branch --list 'advisor/*'` for one another session already owns — never reuse or remove it. Remove the worktree and branch only after the user merges or discards the work.
 
 The subagent prompt must contain:
 

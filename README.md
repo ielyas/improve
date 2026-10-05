@@ -1,5 +1,7 @@
 # improve
 
+> Private fork of [shadcn/improve](https://github.com/shadcn/improve) adding `orchestrate` (parallel multi-plan runs in T3 Code) and hand-made executor worktrees. Upstream: `git fetch upstream && git merge upstream/main`.
+
 An agent skill that audits any codebase and writes implementation plans for other agents to execute.
 
 The idea: use your most capable model for the part where intelligence compounds — understanding the codebase, judging what's worth doing, writing the spec — and hand execution to cheaper models. The skill never implements anything itself. The plan is the product.
@@ -13,7 +15,7 @@ other agent  →  implements, tests, ships    (cheap model, executes)
 ## Install
 
 ```bash
-npx skills add shadcn/improve
+npx skills add ielyas/improve
 ```
 
 Works in any agent that supports [Agent Skills](https://agentskills.io) format. The plans it writes are plain markdown, so any agent (or human) can pick them up.
@@ -30,6 +32,7 @@ Works in any agent that supports [Agent Skills](https://agentskills.io) format. 
 /improve plan <description>     skip the audit, spec one thing
 /improve review-plan <file>     critique and tighten an existing plan
 /improve execute <plan>         dispatch a cheaper executor, review its work
+/improve orchestrate <plans…>   run several plans in parallel under a Master thread
 /improve reconcile              refresh the backlog: verify, unblock, retire
 /improve ... --issues           also publish plans as GitHub issues
 ```
