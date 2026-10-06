@@ -63,7 +63,7 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 
 1. **Re-run every done criterion** in the worktree. Don't trust the executor's report — verify.
 2. **Scope compliance**: `git -C <worktree> diff --stat` against the plan's in-scope list. Any file outside scope fails review, full stop.
-3. **Read the full diff.** Judge it against "Why this matters" (does it solve the actual problem?) and the repo conventions named in the plan (does it look like the rest of the codebase?).
+3. **Read the full diff.** Judge it against "Why this matters" (does it solve the actual problem, as production code rather than a prototype or stub, unless the plan's Type is Spike?) and the repo conventions named in the plan (does it look like the rest of the codebase?).
 4. **Audit the new tests.** Executors game criteria — a test that asserts nothing meaningful passes `pnpm test` and proves nothing. Read what the tests assert.
 
 ### Verdict

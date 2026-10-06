@@ -115,7 +115,7 @@ Events are the progress feed. A Lead *also* messages Master directly, using `t3_
 2. For each plan step:
    - Dispatch the executor with the closing-the-loop prompt: the full plan inlined, the current step named, the worktree's absolute path, the hooks' isolated build and test commands, and the locks it must take.
    - Use the Agent tool with `model:"sonnet"` and **no** `isolation`, because the thread is already bound to the worktree. If the Agent tool can't take a model, use `delegate_task` with the Sonnet model from `orchestrator_capabilities`.
-   - Review the step exactly as closing-the-loop describes: re-run its verification, check scope, read the diff and the tests. Revise at most 2 rounds, then BLOCK.
+   - Review the step exactly as closing-the-loop describes, and reject prototype or stub code standing in for the real feature unless the plan's Type is Spike: re-run its verification, check scope, read the diff and the tests. Revise at most 2 rounds, then BLOCK.
    - On approval, commit in the worktree, append `STEP k/n APPROVED`, and **start the next step immediately**. If the step overlaps another plan's files, that is a rebase note for the final report, not a reason to wait.
 3. **Never ask the user anything mid-run.** Decide from the plan, the repo's docs and the project's history. Log every judgment call as a default in `$LEDGER/NNN-defaults.md`, one line each.
 4. **Steering:** if the user writes in the plan thread, treat it as authoritative.
@@ -192,7 +192,7 @@ Then **tear down** what this run created, and nothing else:
 > - Follow the Lead loop in `references/orchestrate.md` and the review rules in `references/closing-the-loop.md`. Read both now: `<absolute paths>`.
 > - Project hooks: `<inlined>`.
 >
-> You never write code yourself. A Sonnet 5.5 executor subagent does, and you review every step. Never ask the user anything mid-run; log defaults instead. If the user writes in this thread, treat it as an owner change.
+> You never write code yourself. A Sonnet 5.5 executor subagent does, and you review every step. The executor builds production code that ships, on every platform in scope — not a prototype or a handoff — unless the plan's Type is Spike. Never ask the user anything mid-run; log defaults instead. If the user writes in this thread, treat it as an owner change.
 >
 > The plan:
 >

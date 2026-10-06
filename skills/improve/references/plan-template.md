@@ -36,6 +36,7 @@ File naming: `plans/NNN-short-slug.md`, numbered in recommended execution order.
 - **Risk**: LOW | MED | HIGH
 - **Depends on**: plans/NNN-*.md (or "none")
 - **Category**: bug | security | perf | tests | tech-debt | migration | dx | docs | direction
+- **Type**: Build (default — ships the feature) | Spike (only when the user explicitly asked for a spike, prototype or investigation)
 - **Planned at**: commit `<short SHA>`, <YYYY-MM-DD>
 - **Issue**: <GitHub issue URL — only when published via `--issues`; omit otherwise>
 
@@ -113,6 +114,11 @@ line).
 
 ### Step 2: ...
 
+(If a genuine unknown blocks the build, Step 1 may be a short, bounded
+investigation with a STOP condition; its result feeds the build steps that
+follow. The steps build the production feature end to end on every platform in
+scope — no prototype or handoff stands in for the real work unless Type is Spike.)
+
 (Each step small enough to verify independently. Order steps so the codebase
 is never broken between steps when possible — e.g. add new path, switch
 callers, then remove old path.)
@@ -132,7 +138,9 @@ Machine-checkable. ALL must hold:
 - [ ] `pnpm typecheck` exits 0
 - [ ] `pnpm test` exits 0; new tests for <X> exist and pass
 - [ ] `grep -rn "<old pattern>" src/` returns no matches
+- [ ] The feature works end to end on every platform in scope — <the command or check that proves it>
 - [ ] No files outside the in-scope list are modified (`git status`)
+- [ ] Project trackers and the user-facing CHANGELOG updated, as the repo's agent docs require
 - [ ] `plans/README.md` status row updated
 
 ## STOP conditions
@@ -193,5 +201,6 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Does every step name exact files and symbols, not "the relevant module"?
 - Are the STOP conditions specific to this plan's actual risks, not boilerplate?
 - Would a reviewer reading only "Why this matters" + "Done criteria" understand what they're approving?
+- Unless Type is Spike: does the plan ship the feature end to end, with no prototype, handoff, deferred core work, or open product questions left inside it?
 - No secret values anywhere in the file — locations and credential types only.
 - "Planned at" SHA is filled in and the in-scope paths in the drift check match the Scope section.

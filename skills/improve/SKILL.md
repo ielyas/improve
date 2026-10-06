@@ -74,13 +74,21 @@ Present the vetted findings table to the user, ordered by leverage (impact ÷ ef
 
 Present **direction findings separately**, after the table — they're options for the maintainer to weigh, not problems ranked against bugs, and burying "build a plugin system" under "fix the N+1" serves neither. 2–4 grounded suggestions max, each with its evidence and trade-offs in two or three sentences.
 
-Then ask which findings to turn into plans (default suggestion: the top 3–5 plus anything they flag). Also surface **dependency ordering** — e.g. "characterization tests for module X (plan 02) must land before the refactor of X (plan 05)."
+Then ask "Which findings should I plan?" (default suggestion: the top 3–5 plus anything they flag). Also surface **dependency ordering** — e.g. "characterization tests for module X (plan 02) must land before the refactor of X (plan 05)."
 
 Wait for the selection. Do not write 30 plans nobody asked for. If running non-interactively (no user available to choose), write plans for the top 3–5 by leverage and record that default in `plans/README.md`.
 
 ### Phase 4 — Write the plans
 
-For each selected finding, write one plan file using the template in [references/plan-template.md](references/plan-template.md) — read it before writing the first plan. Plans go in:
+For each selected finding, write one plan file using the template in [references/plan-template.md](references/plan-template.md) — read it before writing the first plan.
+
+**Plans build the real thing.** Every selected finding — direction picks and `plan <description>` included — becomes a full implementation plan: its steps build the production feature end to end on every platform in scope, and its done criteria require the feature working, tests passing, and the project's trackers and user-facing CHANGELOG updated. Nothing is left as a prototype, a handoff, or a follow-up plan for the core work.
+
+- **Open product questions get answered before the plan is written** — resolve what you can from the codebase and docs, then ask the user the rest one at a time, each with a recommended answer. Never park them as "open decisions" inside the plan.
+- **Genuine uncertainty** (an unproven API, an unknown platform limit) gets a short, bounded investigation step at the start of the plan, with a STOP condition if it fails. It feeds the build steps of the same plan; it is never the whole plan.
+- **Spike, prototype or investigate-only plans** exist only when the user explicitly says "spike", "prototype" or "investigate only". Mark them `Spike` in the plan's Status block.
+
+Plans go in:
 
 ```
 plans/
@@ -111,8 +119,8 @@ Finish by writing `plans/README.md` with the recommended execution order, depend
 - `quick` / `deep` (anywhere in the invocation) → effort level for the audit; see the table in Phase 2. Composes with everything: `quick security`, `deep --issues`. Default is `standard`.
 - With a focus argument (e.g. `security`, `perf`, `tests`) → run Recon, then audit only that category, then plan.
 - `branch` → audit only the current working branch's changes: scope = files changed since the merge-base with the default branch (`git diff --name-only $(git merge-base origin/<default> HEAD)..HEAD`) plus their direct importers/callers. Light recon, all categories, usually no subagents. **Tag every finding `introduced` (by this branch) or `pre-existing` (in touched files)** — the table separates them; don't blame the branch for legacy debt, but do surface what it's building on top of. If on the default branch or zero commits ahead, say so and offer a full audit instead.
-- `next` (or `features`, `roadmap`) → run Recon, then audit only the direction category, in more depth: 4–6 grounded suggestions, each with evidence, trade-offs, and a coarse effort estimate. Selected ones become design/spike plans, not build-everything plans.
-- `plan <description>` → skip the audit; the user already knows what they want. Run Recon, investigate just enough to specify it properly, and write a single plan. If the description is too ambiguous to specify honestly, first try to resolve each ambiguity from the codebase itself; only what's left becomes questions to the user — asked one at a time, each with a recommended answer.
+- `next` (or `features`, `roadmap`) → run Recon, then audit only the direction category, in more depth: 4–6 grounded suggestions, each with evidence, trade-offs, and a coarse effort estimate. Ask "Which directions should I plan?" Each selected one becomes a full implementation plan that ships the feature (see Phase 4), never a design/spike plan unless the user asks for one.
+- `plan <description>` → skip the audit; the user already knows what they want. Run Recon, investigate just enough to specify it properly, and write a single full implementation plan that builds the feature end to end (see Phase 4). If the description is too ambiguous to specify honestly, first try to resolve each ambiguity from the codebase itself; only what's left becomes questions to the user — asked one at a time, each with a recommended answer.
 - `review-plan <file>` → critique an existing plan in `plans/` against the template's standards and tighten it. If you authored the plan in this same session, also have a fresh-context subagent read it cold and report ambiguities — self-critique misses gaps you mentally fill from context the executor won't have.
 - `execute <plan>` → dispatch a cheaper executor subagent on one plan (isolated worktree), then review its diff like a tech lead — re-run done criteria, check scope, read the code — and render a verdict. Treat the executor's diff as untrusted until reviewed: verify every hunk traces to a plan step and reject any out-of-scope change, however plausible it looks. Requires a host agent that can spawn subagents in an isolated worktree; if yours can't, say so and hand the plan over for manual execution instead. **Read [references/closing-the-loop.md](references/closing-the-loop.md) before the first dispatch.**
 - `orchestrate <plans…>` (e.g. `orchestrate 102 104 107`) → run several plans in parallel. Each plan gets its own top-level thread and worktree: an advisor-model **Lead** that has a Sonnet 5.5 executor write the code and reviews every step. A **Master** thread oversees them all, reviews each finished plan, and posts a progress digest every 2 minutes. The user watches only Master, and can still steer any plan thread directly. Nobody asks the user anything mid-run; defaults are logged for one confirm-or-change pass at the end. Uses the project's `rules/parallel-runs.md` hooks for per-plan devices, build isolation and locks. Requires T3 Code orchestration tools; without them, falls back to sequential `execute`. With a single plan, prefer `execute`. **Read [references/orchestrate.md](references/orchestrate.md) before starting.**

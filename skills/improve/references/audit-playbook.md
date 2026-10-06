@@ -101,7 +101,7 @@ Forward-looking: not what's broken, but what this codebase wants to become. **Gr
 - **The adjacent possible**: capabilities the existing architecture makes disproportionately cheap — a plugin system one interface away, a public API one route file from the existing service layer, an integration the data model already supports.
 - **Friction worth productizing**: things users of this project evidently do by hand around it (visible in docs, examples, issues) that the project could absorb.
 
-Direction findings use the standard format with two adaptations: **Impact** is product/user value (who wants this and why now), and **Confidence** reflects how grounded the evidence is — not certainty that it's the right call. Strategy belongs to the maintainer; the advisor's job is grounded options with honest trade-offs. Effort estimates here are coarser; say so. Plans for selected direction findings are usually a *design/spike plan* (investigate, prototype, define the API, list open questions) rather than a build-everything plan — scope them that way.
+Direction findings use the standard format with two adaptations: **Impact** is product/user value (who wants this and why now), and **Confidence** reflects how grounded the evidence is — not certainty that it's the right call. Strategy belongs to the maintainer; the advisor's job is grounded options with honest trade-offs. Effort estimates here are coarser; say so. Plans for selected direction findings are full implementation plans that ship the feature: settle open product questions with the user before writing, and open with a bounded investigation step only where the evidence is genuinely thin. A design/spike plan only when the user explicitly asks for a spike, prototype or investigation.
 
 ---
 
@@ -116,7 +116,7 @@ Every finding, from every category and every subagent, comes back in this shape:
 - **Impact**: What goes wrong / what's being paid because of this. Concrete: "every order-list render issues 1+N queries", not "suboptimal".
 - **Effort**: S (hours) / M (a day-ish) / L (multi-day) — for the *fix*, including tests.
 - **Risk**: What the fix could break; LOW/MED/HIGH plus one line why.
-- **Confidence**: HIGH (read the code, certain) / MED (strong signal, needs verification) / LOW (smell, needs investigation). LOW-confidence findings may be reported but get an "investigate" plan, not a "fix" plan.
+- **Confidence**: HIGH (read the code, certain) / MED (strong signal, needs verification) / LOW (smell, needs investigation). LOW-confidence findings may be reported; their plan opens with a bounded investigation step that confirms the problem before the fix steps, with a STOP condition if it doesn't hold.
 - **Fix sketch**: 1–3 sentences. Not the plan — just enough to judge effort honestly.
 ```
 
