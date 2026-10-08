@@ -56,6 +56,8 @@ mkdir -p "$LEDGER/locks" && touch "$LEDGER/events.log"
 
 `state.json` in the ledger holds the plan list, base branch, and the IDs of every thread and scheduled task, plus `digestedLines` (lines of `events.log` already reported). Master owns it after launch.
 
+   Also write the **build throttle** into the ledger (see [Build throttle](#build-throttle)) before any plan launches. Every Lead brief tells the Lead to use it from its first build.
+
 6. **Launch Master** with `t3_thread_launch`:
    - `title`: `Master — <plans>`.
    - `workspaceStrategy`: `{type:"existing_worktree", worktreePath:<this checkout>, branch:<current>}`, or `{type:"root"}` when the invoking thread is in the main checkout.
@@ -86,6 +88,35 @@ Store the returned `scheduledTaskId` in `state.json`. Report the cadence and nex
 
 ## Phase 3 — Run
 
+### Build throttle
+
+Plans run in parallel, but heavy builds must not. Seven or eight concurrent `xcodebuild`/compile/test jobs on one machine pushed the load average past 500: simulators wouldn't boot and test runs hung with no output (orch-20261008-2134). Per-worktree build directories isolate outputs, not CPU.
+
+So every heavy build or test command, from Leads and executors alike, runs through a shared slot semaphore in the ledger. Default: **3 slots**. Use the hooks' number if they give one.
+
+```
+cat > "$LEDGER/build-slot.sh" <<'EOF'
+#!/bin/zsh
+# usage: build-slot.sh <command...>, run holding one of N shared build slots
+L="$(dirname "$0")/locks"; N=${BUILD_SLOTS:-3}
+while true; do
+  for i in $(seq 1 $N); do
+    if mkdir "$L/build-slot-$i" 2>/dev/null; then
+      echo "$$ $(date -u +%H:%M:%S) $PWD" > "$L/build-slot-$i/owner"
+      trap "rm -rf '$L/build-slot-$i'" EXIT INT TERM
+      "$@"; exit $?
+    fi
+  done
+  sleep 15
+done
+EOF
+chmod +x "$LEDGER/build-slot.sh"
+```
+
+- Wrap the command itself: `$LEDGER/build-slot.sh xcodebuild …`, `$LEDGER/build-slot.sh bun test`. Project locks (a perf lock, say) still apply, inside the slot.
+- Waiting for a slot is not a stall. A slot whose owner PID is dead is stale: Master removes it.
+- The digest checks the load average (`sysctl -n vm.loadavg` or `uptime`). If the 5-minute load stays above about 4× the core count, Master lowers the slot count for new builds and says so in one line.
+
 ### Events
 
 Every thread appends one line per milestone to `$LEDGER/events.log`:
@@ -113,7 +144,7 @@ Events are the progress feed. A Lead *also* messages Master directly, using `t3_
 
 1. Refresh the plan if it drifted. Run the hooks' **setup** (for example, create this plan's simulators) and record what was created in an event, so teardown can find it.
 2. For each plan step:
-   - Dispatch the executor with the closing-the-loop prompt: the full plan inlined, the current step named, the worktree's absolute path, the hooks' isolated build and test commands, and the locks it must take.
+   - Dispatch the executor with the closing-the-loop prompt: the full plan inlined, the current step named, the worktree's absolute path, the hooks' isolated build and test commands wrapped in `$LEDGER/build-slot.sh`, and the locks it must take.
    - Use the Agent tool with `model:"sonnet"` and **no** `isolation`, because the thread is already bound to the worktree. If the Agent tool can't take a model, use `delegate_task` with the Sonnet model from `orchestrator_capabilities`.
    - Review the step exactly as closing-the-loop describes, and reject prototype or stub code standing in for the real feature unless the plan's Type is Spike: re-run its verification, check scope, read the diff and the tests. Revise at most 2 rounds, then BLOCK.
    - On approval, commit in the worktree, append `STEP k/n APPROVED`, and **start the next step immediately**. If the step overlaps another plan's files, that is a rebase note for the final report, not a reason to wait.
@@ -149,6 +180,8 @@ Once a plan is APPROVED, launch any plan that was waiting on it, with that plan'
 >
 > - **Nothing new, and no thread stalled:** reply with exactly `·`.
 > - **Otherwise:** post one compact update with one line per plan: `NNN · step k/n · state · detail`. Mark blockers and owner changes, and list `TESTS RED` first. Flag a plan as **stalled** when its thread shows no activity for 15 minutes and it isn't waiting on a lock or on review; send its Lead a one-line nudge.
+>
+> Check the load average too: if the 5-minute load stays above about 4× the core count, flag it and lower the build-slot count for new builds.
 >
 > Then set `digestedLines` to the line count of `events.log`. Don't review code, launch threads, or change any plan state here.
 
@@ -191,6 +224,7 @@ Then **tear down** what this run created, and nothing else:
 > - Your worktree: `<path>`, on branch `advisor/NNN-<slug>`. Ledger: `<LEDGER>`.
 > - Follow the Lead loop in `references/orchestrate.md` and the review rules in `references/closing-the-loop.md`. Read both now: `<absolute paths>`.
 > - Project hooks: `<inlined>`.
+> - Run every heavy build or test, yours and your executor's, through `<LEDGER>/build-slot.sh <command>` (shared slots; waiting is not a stall).
 >
 > You never write code yourself. A Sonnet 5.5 executor subagent does, and you review every step. The executor builds production code that ships, on every platform in scope — not a prototype or a handoff — unless the plan's Type is Spike. Never ask the user anything mid-run; log defaults instead. If the user writes in this thread, treat it as an owner change.
 >
