@@ -92,13 +92,13 @@ Store the returned `scheduledTaskId` in `state.json`. Report the cadence and nex
 
 Plans run in parallel, but heavy builds must not. Seven or eight concurrent `xcodebuild`/compile/test jobs on one machine pushed the load average past 500: simulators wouldn't boot and test runs hung with no output (orch-20261008-2134). Per-worktree build directories isolate outputs, not CPU.
 
-So every heavy build or test command, from Leads and executors alike, runs through a shared slot semaphore in the ledger. Default: **3 slots**. Use the hooks' number if they give one.
+So every heavy build or test command, from Leads and executors alike, runs through a shared slot semaphore in the ledger. Default: **2 slots** on a 15-core machine (about one per 7 cores). Use the hooks' number if they give one.
 
 ```
 cat > "$LEDGER/build-slot.sh" <<'EOF'
 #!/bin/zsh
 # usage: build-slot.sh <command...>, run holding one of N shared build slots
-L="$(dirname "$0")/locks"; N=${BUILD_SLOTS:-3}
+L="$(dirname "$0")/locks"; N=${BUILD_SLOTS:-2}
 while true; do
   for i in $(seq 1 $N); do
     if mkdir "$L/build-slot-$i" 2>/dev/null; then
@@ -114,6 +114,7 @@ chmod +x "$LEDGER/build-slot.sh"
 ```
 
 - Wrap the command itself: `$LEDGER/build-slot.sh xcodebuild …`, `$LEDGER/build-slot.sh bun test`. Project locks (a perf lock, say) still apply, inside the slot.
+- **Simulators count too.** Ten booted simulators on 15 cores kept load above 400 and the simulators' own system apps were killed by the launch watchdog, popping crash dialogs on the owner's screen. Each plan keeps at most one simulator booted, only while a test or screenshot runs, and shuts it down (`xcrun simctl shutdown <UDID>`) right after.
 - Waiting for a slot is not a stall. A slot whose owner PID is dead is stale: Master removes it.
 - The digest checks the load average (`sysctl -n vm.loadavg` or `uptime`). If the 5-minute load stays above about 4× the core count, Master lowers the slot count for new builds and says so in one line.
 
