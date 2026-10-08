@@ -114,7 +114,7 @@ chmod +x "$LEDGER/build-slot.sh"
 ```
 
 - Wrap the command itself: `$LEDGER/build-slot.sh xcodebuild …`, `$LEDGER/build-slot.sh bun test`. Project locks (a perf lock, say) still apply, inside the slot.
-- **Simulators count too.** Ten booted simulators on 15 cores kept load above 400 and the simulators' own system apps were killed by the launch watchdog, popping crash dialogs on the owner's screen. Each plan keeps at most one simulator booted, only while a test or screenshot runs, and shuts it down (`xcrun simctl shutdown <UDID>`) right after.
+- **Simulators count too.** Ten booted simulators on 15 cores kept load above 400 and the simulators' own system apps were killed by the launch watchdog, popping crash dialogs on the owner's screen. Each plan keeps at most one simulator booted, only while a test or screenshot runs, and shuts it down (`xcrun simctl shutdown <UDID>`) right after. A fresh boot is the expensive part (widgets and system daemons spin up), so the whole simulator session, boot through screenshots to shutdown, runs inside a build slot: `build-slot.sh zsh -c '<boot; shoot; shutdown>'`. Builds plus live simulators never exceed the slot count.
 - Waiting for a slot is not a stall. A slot whose owner PID is dead is stale: Master removes it.
 - The digest checks the load average (`sysctl -n vm.loadavg` or `uptime`). If the 5-minute load stays above about 4× the core count, Master lowers the slot count for new builds and says so in one line.
 
