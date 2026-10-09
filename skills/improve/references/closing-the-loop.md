@@ -18,7 +18,7 @@ The founding rule survives unchanged: **the advisor never edits source code.** I
 
 ### Dispatch
 
-Executor model: default `sonnet` (Sonnet 5.5); use what the user named if they named one (`execute 003 haiku`).
+Executor model: default `sonnet` (Sonnet 5.5); use `-e <model>` if the user passed one (`execute 003 -e haiku`; the older `execute 003 haiku` means the same). The reviewer is this session, on the `-a` model; see "Model flags" in SKILL.md for resolving values and the hand-off when `-a` differs from this session's model. `-l` has no effect here.
 
 **Make the worktree yourself** — `isolation: "worktree"` has lost its working-directory context mid-run and always branches from the default branch, not the one holding the plans:
 

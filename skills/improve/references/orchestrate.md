@@ -5,12 +5,12 @@
 The founding rule still holds: **no advisor edits source code.** Only executors write code; every other role dispatches, reviews and reports.
 
 ```
-invoking thread ──launches──▶ Master (advisor model, read-only)
+invoking thread ──launches──▶ Master (advisor model `-a`, read-only)
                                  │ launches, reviews, digests every 2 min
                                  ▼
                  Plan thread 102 · Plan thread 104 · Plan thread 107
-                 Lead (advisor model, reviews every step)
-                   └─ Executor subagent (Sonnet 5.5, writes the code)
+                 Lead (`-l`, default advisor model, reviews every step)
+                   └─ Executor subagent (`-e`, default Sonnet 5.5, writes the code)
 ```
 
 Read [closing-the-loop.md](closing-the-loop.md) first. The Lead's dispatch, review and verdict rules come from its `execute` section, applied once per plan step.
@@ -27,11 +27,11 @@ Read [closing-the-loop.md](closing-the-loop.md) first. The Lead's dispatch, revi
 | Role | Model | Where | Writes |
 |---|---|---|---|
 | Invoking thread | the user's | wherever `orchestrate` was typed | the run ledger only |
-| **Master** | inherited (advisor model) | the invoking thread's checkout | ledger; trackers outside git (Notion, Linear) |
-| **Lead** (one per plan thread) | inherited (advisor model) | the plan's own worktree | nothing in code; commits the executor's work, the plan index and the project trackers on its branch |
-| **Executor** (subagent of a Lead) | `sonnet` (Sonnet 5.5), unless the user named another | same worktree | code, tests |
+| **Master** | `-a`, else inherited (advisor model) | the invoking thread's checkout | ledger; trackers outside git (Notion, Linear) |
+| **Lead** (one per plan thread) | `-l`, else the advisor model | the plan's own worktree | nothing in code; commits the executor's work, the plan index and the project trackers on its branch |
+| **Executor** (subagent of a Lead) | `-e`, else `sonnet` (Sonnet 5.5) | same worktree | code, tests |
 
-Leave `modelSelection` unset on both launches so Master and the Leads inherit the advisor model. Never run a Lead on the executor model.
+Model flags (`-a`, `-l`, `-e`) are defined in SKILL.md under "Model flags"; resolve them in preflight. Set Master's `modelSelection` to the `-a` model, or leave it unset to inherit this session's. Set each plan thread's `modelSelection` to the `-l` model; without `-l`, set it explicitly to the advisor model (the `-a` model, or this session's), never leave it to whatever the thread happens to inherit. Don't put a Lead on the executor model unless the user chose that with `-l`.
 
 ---
 
@@ -61,7 +61,8 @@ mkdir -p "$LEDGER/locks" && touch "$LEDGER/events.log"
 6. **Launch Master** with `t3_thread_launch`:
    - `title`: `Master — <plans>`.
    - `workspaceStrategy`: `{type:"existing_worktree", worktreePath:<this checkout>, branch:<current>}`, or `{type:"root"}` when the invoking thread is in the main checkout.
-   - `message`: the **Master brief** (below), with the run ID, ledger path, plan list, dependency order, hooks text and base branch filled in.
+   - `modelSelection`: the resolved `-a` model, or omit it to inherit.
+   - `message`: the **Master brief** (below), with the run ID, ledger path, plan list, dependency order, hooks text, base branch and the resolved Lead and executor models filled in.
 
    Record Master's `threadId` in `state.json`. Then tell the user, in one line, to switch to the Master thread. The invoking thread's job ends here.
 
@@ -72,6 +73,7 @@ For each plan that is ready to start:
 1. **Launch the plan thread** with `t3_thread_launch`:
    - `title`: `NNN — <plan title>`.
    - `workspaceStrategy`: `{type:"worktree", baseRef:<base or parent branch>, branch:"advisor/NNN-<slug>", startFromOrigin:false}`.
+   - `modelSelection`: the Lead model from the Master brief (the `-l` model, else the advisor model).
    - `message`: the **Lead brief** (below).
 
    Uncommitted plan files don't reach a new worktree, so the brief always inlines the full plan text.
@@ -147,7 +149,7 @@ Events are the progress feed. A Lead *also* messages Master directly, using `t3_
 1. Refresh the plan if it drifted. Run the hooks' **setup** (for example, create this plan's simulators) and record what was created in an event, so teardown can find it.
 2. For each plan step:
    - Dispatch the executor with the closing-the-loop prompt: the full plan inlined, the current step named, the worktree's absolute path, the hooks' isolated build and test commands wrapped in `$LEDGER/build-slot.sh`, and the locks it must take.
-   - Use the Agent tool with `model:"sonnet"` and **no** `isolation`, because the thread is already bound to the worktree. If the Agent tool can't take a model, use `delegate_task` with the Sonnet model from `orchestrator_capabilities`.
+   - Use the Agent tool with `model:<executor model from the brief>` (default `"sonnet"`) and **no** `isolation`, because the thread is already bound to the worktree. If the Agent tool can't take that model (a specific version, or another provider), use `delegate_task` with it from `orchestrator_capabilities`.
    - Review the step exactly as closing-the-loop describes, and reject prototype or stub code standing in for the real feature unless the plan's Type is Spike: re-run its verification, check scope, read the diff and the tests. Revise at most 2 rounds, then BLOCK.
    - On approval, commit in the worktree, append `STEP k/n APPROVED`, and **start the next step immediately**. If the step overlaps another plan's files, that is a rebase note for the final report, not a reason to wait.
 3. **Never ask the user anything mid-run.** Decide from the plan, the repo's docs and the project's history. Log every judgment call as a default in `$LEDGER/NNN-defaults.md`, one line each.
@@ -216,6 +218,7 @@ Then **tear down** what this run created, and nothing else:
 >
 > Ledger: `<LEDGER>`. Base branch: `<base>`. Dependency order: `<…>`.
 > Project hooks: `<inlined text or "none: generic defaults">`.
+> Models: Lead `<-l model, else the advisor model>`, executor `<-e model, default sonnet>`.
 >
 > You never edit source code. You launch one plan thread per plan, create the 2-minute digest automation, review each READY FOR REVIEW, and write the final report. Never ask the user questions mid-run. The user watches only this thread: keep every message short.
 
@@ -228,7 +231,7 @@ Then **tear down** what this run created, and nothing else:
 > - Project hooks: `<inlined>`.
 > - Run every heavy build or test, yours and your executor's, through `<LEDGER>/build-slot.sh <command>` (shared slots; waiting is not a stall).
 >
-> You never write code yourself. A Sonnet 5.5 executor subagent does, and you review every step. The executor builds production code that ships, on every platform in scope — not a prototype or a handoff — unless the plan's Type is Spike. Never ask the user anything mid-run; log defaults instead. If the user writes in this thread, treat it as an owner change.
+> You never write code yourself. A `<executor model>` executor subagent does, and you review every step. The executor builds production code that ships, on every platform in scope — not a prototype or a handoff — unless the plan's Type is Spike. Never ask the user anything mid-run; log defaults instead. If the user writes in this thread, treat it as an owner change.
 >
 > The plan:
 >

@@ -35,6 +35,7 @@ Works in any agent that supports [Agent Skills](https://agentskills.io) format. 
 /improve orchestrate <plans…>   run several plans in parallel under a Master thread
 /improve reconcile              refresh the backlog: verify, unblock, retire
 /improve ... --issues           also publish plans as GitHub issues
+/improve ... -a opus -l sonnet -e haiku   pick advisor, lead and executor models
 ```
 
 ## How to use
