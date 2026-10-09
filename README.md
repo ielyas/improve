@@ -1,6 +1,6 @@
 # improve
 
-> Private fork of [shadcn/improve](https://github.com/shadcn/improve) adding `orchestrate` (parallel multi-plan runs in T3 Code) and hand-made executor worktrees. Upstream: `git fetch upstream && git merge upstream/main`.
+> Fork of [shadcn/improve](https://github.com/shadcn/improve) adding `orchestrate` (parallel multi-plan runs in T3 Code), hand-made executor worktrees, and `-a`/`-l`/`-e` flags to pick the advisor, lead and executor models. Upstream: `git fetch upstream && git merge upstream/main`.
 
 An agent skill that audits any codebase and writes implementation plans for other agents to execute.
 
