@@ -1,6 +1,6 @@
 # improve
 
-> Fork of [shadcn/improve](https://github.com/shadcn/improve) adding `orchestrate` (parallel multi-plan runs in T3 Code), hand-made executor worktrees, and `-a`/`-l`/`-e` flags to pick the advisor, lead and executor models. Upstream: `git fetch upstream && git merge upstream/main`.
+> Fork of [shadcn/improve](https://github.com/shadcn/improve) adding `orchestrate` (parallel multi-plan runs in T3 Code), hand-made executor worktrees, `-a`/`-l`/`-e` flags to pick the advisor, lead and executor models, and Haiku scouts (`-s`) for gathering and checks. Upstream: `git fetch upstream && git merge upstream/main`.
 
 An agent skill that audits any codebase and writes implementation plans for other agents to execute.
 
@@ -35,8 +35,10 @@ Works in any agent that supports [Agent Skills](https://agentskills.io) format. 
 /improve orchestrate <plans…>   run several plans in parallel under a Master thread
 /improve reconcile              refresh the backlog: verify, unblock, retire
 /improve ... --issues           also publish plans as GitHub issues
-/improve ... -a opus -l sonnet -e haiku   pick advisor, lead and executor models
+/improve ... -a opus -l sonnet -e sonnet -s haiku   pick advisor, lead, executor and scout models
 ```
+
+Scouts (`-s`, default Haiku 5.5) are read-only helpers that do the gathering and mechanical checks: medium-breadth audit categories, evidence for `plan`, the cold read in `review-plan`, running done criteria in reviews, the `orchestrate` digest and `reconcile` drift checks. They return evidence labelled OBSERVED or GUESS; every decision stays with the advisor, Lead or Master. `-s off` turns them off.
 
 ## How to use
 

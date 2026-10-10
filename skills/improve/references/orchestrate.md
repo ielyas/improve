@@ -11,6 +11,7 @@ invoking thread ──launches──▶ Master (advisor model `-a`, read-only)
                  Plan thread 102 · Plan thread 104 · Plan thread 107
                  Lead (`-l`, default advisor model, reviews every step)
                    └─ Executor subagent (`-e`, default Sonnet 5.5, writes the code)
+                 Scouts (`-s`, default Haiku 5.5): read-only runs of checks and digests for Master and Leads
 ```
 
 Read [closing-the-loop.md](closing-the-loop.md) first. The Lead's dispatch, review and verdict rules come from its `execute` section, applied once per plan step.
@@ -30,8 +31,9 @@ Read [closing-the-loop.md](closing-the-loop.md) first. The Lead's dispatch, revi
 | **Master** | `-a`, else inherited (advisor model) | the invoking thread's checkout | ledger; trackers outside git (Notion, Linear) |
 | **Lead** (one per plan thread) | `-l`, else the advisor model | the plan's own worktree | nothing in code; commits the executor's work, the plan index and the project trackers on its branch |
 | **Executor** (subagent of a Lead) | `-e`, else `sonnet` (Sonnet 5.5) | same worktree | code, tests |
+| **Scout** (subagent of Master or a Lead) | `-s`, else `haiku` (Haiku 5.5) | the dispatcher's checkout or worktree | nothing |
 
-Model flags (`-a`, `-l`, `-e`) are defined in SKILL.md under "Model flags"; resolve them in preflight. Set Master's `modelSelection` to the `-a` model, or leave it unset to inherit this session's. Set each plan thread's `modelSelection` to the `-l` model; without `-l`, set it explicitly to the advisor model (the `-a` model, or this session's), never leave it to whatever the thread happens to inherit. Don't put a Lead on the executor model unless the user chose that with `-l`.
+Model flags (`-a`, `-l`, `-e`, `-s`) are defined in SKILL.md under "Model flags"; resolve them in preflight. Set Master's `modelSelection` to the `-a` model, or leave it unset to inherit this session's. Set each plan thread's `modelSelection` to the `-l` model; without `-l`, set it explicitly to the advisor model (the `-a` model, or this session's), never leave it to whatever the thread happens to inherit. Don't put a Lead on the executor model unless the user chose that with `-l`.
 
 ---
 
@@ -150,7 +152,7 @@ Events are the progress feed. A Lead *also* messages Master directly, using `t3_
 2. For each plan step:
    - Dispatch the executor with the closing-the-loop prompt: the full plan inlined, the current step named, the worktree's absolute path, the hooks' isolated build and test commands wrapped in `$LEDGER/build-slot.sh`, and the locks it must take.
    - Use the Agent tool with `model:<executor model from the brief>` (default `"sonnet"`) and **no** `isolation`, because the thread is already bound to the worktree. If the Agent tool can't take that model (a specific version, or another provider), use `delegate_task` with it from `orchestrator_capabilities`.
-   - Review the step exactly as closing-the-loop describes, and reject prototype or stub code standing in for the real feature unless the plan's Type is Spike: re-run its verification, check scope, read the diff and the tests. Revise at most 2 rounds, then BLOCK.
+   - Review the step exactly as closing-the-loop describes (a scout runs the verification and the hunk-to-step map; you read the diff and tests), and reject prototype or stub code standing in for the real feature unless the plan's Type is Spike: re-run its verification, check scope, read the diff and the tests. Revise at most 2 rounds, then BLOCK.
    - On approval, commit in the worktree, append `STEP k/n APPROVED`, and **start the next step immediately**. If the step overlaps another plan's files, that is a rebase note for the final report, not a reason to wait.
 3. **Never ask the user anything mid-run.** Decide from the plan, the repo's docs and the project's history. Log every judgment call as a default in `$LEDGER/NNN-defaults.md`, one line each.
 4. **Steering:** if the user writes in the plan thread, treat it as authoritative.
@@ -166,7 +168,7 @@ Events are the progress feed. A Lead *also* messages Master directly, using `t3_
 ### Master on READY FOR REVIEW
 
 Master reviews independently, as a second tech lead:
-- Re-run the done criteria in the plan's worktree (`git -C <path>` and the hooks' commands, with the same locks).
+- Re-run the done criteria in the plan's worktree (`git -C <path>` and the hooks' commands, with the same locks), through a scout and its re-run rule.
 - Check scope against the plan, counting OWNER CHANGE items as in scope.
 - Read the whole diff.
 
@@ -180,7 +182,7 @@ Once a plan is APPROVED, launch any plan that was waiting on it, with that plan'
 
 > Orchestrate digest for `<RUN_ID>`, ledger `<LEDGER>`.
 >
-> Read `state.json` and the lines of `events.log` after `digestedLines`. Also run `t3_thread_read` on each plan thread that is still running, using `view:"activity"` and `limit:5`.
+> Dispatch one scout (`<scout model>`) to do the reading: `state.json`, the lines of `events.log` after `digestedLines`, `t3_thread_read` on each plan thread that is still running (`view:"activity"`, `limit:5`), and the load average. It returns either `·` or the draft lines below, plus any plan with no activity for 15 minutes. Check its draft against the events it quotes, then:
 >
 > - **Nothing new, and no thread stalled:** reply with exactly `·`.
 > - **Otherwise:** post one compact update with one line per plan: `NNN · step k/n · state · detail`. Mark blockers and owner changes, and list `TESTS RED` first. Flag a plan as **stalled** when its thread shows no activity for 15 minutes and it isn't waiting on a lock or on review; send its Lead a one-line nudge.
@@ -218,7 +220,7 @@ Then **tear down** what this run created, and nothing else:
 >
 > Ledger: `<LEDGER>`. Base branch: `<base>`. Dependency order: `<…>`.
 > Project hooks: `<inlined text or "none: generic defaults">`.
-> Models: Lead `<-l model, else the advisor model>`, executor `<-e model, default sonnet>`.
+> Models: Lead `<-l model, else the advisor model>`, executor `<-e model, default sonnet>`, scout `<-s model, default haiku>`.
 >
 > You never edit source code. You launch one plan thread per plan, create the 2-minute digest automation, review each READY FOR REVIEW, and write the final report. Never ask the user questions mid-run. The user watches only this thread: keep every message short.
 
@@ -231,7 +233,7 @@ Then **tear down** what this run created, and nothing else:
 > - Project hooks: `<inlined>`.
 > - Run every heavy build or test, yours and your executor's, through `<LEDGER>/build-slot.sh <command>` (shared slots; waiting is not a stall).
 >
-> You never write code yourself. A `<executor model>` executor subagent does, and you review every step. The executor builds production code that ships, on every platform in scope — not a prototype or a handoff — unless the plan's Type is Spike. Never ask the user anything mid-run; log defaults instead. If the user writes in this thread, treat it as an owner change.
+> You never write code yourself. A `<executor model>` executor subagent does, and you review every step. A `<scout model>` scout runs each step's checks for you (see "Scouts" in the improve SKILL.md); the verdict is yours. The executor builds production code that ships, on every platform in scope — not a prototype or a handoff — unless the plan's Type is Spike. Never ask the user anything mid-run; log defaults instead. If the user writes in this thread, treat it as an owner change.
 >
 > The plan:
 >

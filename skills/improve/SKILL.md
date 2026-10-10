@@ -57,6 +57,7 @@ Audit depth follows the **effort level** (default `standard`; the user sets it w
 | Coverage | Recon hotspots only — highest-churn, highest-criticality code | Hotspot-weighted, key packages | Whole repo, every package |
 | Subagents | 0–1 (sweep directly when feasible) | ≤4 concurrent | ≤8 concurrent, one per category |
 | Breadth | "medium" | "very thorough" for correctness + security, "medium" rest | "very thorough" everywhere |
+| Model | scout (`-s`) | scout for "medium", advisor model for "very thorough" | advisor model |
 | Categories | correctness, security, tests | all nine | all nine |
 | Findings | top ~6, HIGH-confidence only | full table | full table incl. LOW-confidence "investigate" items |
 
@@ -120,8 +121,8 @@ Finish by writing `plans/README.md` with the recommended execution order, depend
 - With a focus argument (e.g. `security`, `perf`, `tests`) → run Recon, then audit only that category, then plan.
 - `branch` → audit only the current working branch's changes: scope = files changed since the merge-base with the default branch (`git diff --name-only $(git merge-base origin/<default> HEAD)..HEAD`) plus their direct importers/callers. Light recon, all categories, usually no subagents. **Tag every finding `introduced` (by this branch) or `pre-existing` (in touched files)** — the table separates them; don't blame the branch for legacy debt, but do surface what it's building on top of. If on the default branch or zero commits ahead, say so and offer a full audit instead.
 - `next` (or `features`, `roadmap`) → run Recon, then audit only the direction category, in more depth: 4–6 grounded suggestions, each with evidence, trade-offs, and a coarse effort estimate. Ask "Which directions should I plan?" Each selected one becomes a full implementation plan that ships the feature (see Phase 4), never a design/spike plan unless the user asks for one.
-- `plan <description>` → skip the audit; the user already knows what they want. Run Recon, investigate just enough to specify it properly, and write a single full implementation plan that builds the feature end to end (see Phase 4). If the description is too ambiguous to specify honestly, first try to resolve each ambiguity from the codebase itself; only what's left becomes questions to the user — asked one at a time, each with a recommended answer.
-- `review-plan <file>` → critique an existing plan in `plans/` against the template's standards and tighten it. If you authored the plan in this same session, also have a fresh-context subagent read it cold and report ambiguities — self-critique misses gaps you mentally fill from context the executor won't have.
+- `plan <description>` → skip the audit; the user already knows what they want. Run Recon, dispatch a scout for the evidence packet (see "Scouts"), investigate just enough to specify it properly, and write a single full implementation plan that builds the feature end to end (see Phase 4). If the description is too ambiguous to specify honestly, first try to resolve each ambiguity from the codebase itself; only what's left becomes questions to the user — asked one at a time, each with a recommended answer.
+- `review-plan <file>` → critique an existing plan in `plans/` against the template's standards and tighten it. Always have a scout read it cold (see "Scouts") and report where a weak executor would stall — self-critique misses gaps you mentally fill from context the executor won't have, and a small model is the closest stand-in for the weakest plausible executor.
 - `execute <plan>` → dispatch a cheaper executor subagent on one plan (isolated worktree), then review its diff like a tech lead — re-run done criteria, check scope, read the code — and render a verdict. Treat the executor's diff as untrusted until reviewed: verify every hunk traces to a plan step and reject any out-of-scope change, however plausible it looks. Requires a host agent that can spawn subagents in an isolated worktree; if yours can't, say so and hand the plan over for manual execution instead. **Read [references/closing-the-loop.md](references/closing-the-loop.md) before the first dispatch.**
 - `orchestrate <plans…>` (e.g. `orchestrate 102 104 107`) → run several plans in parallel. Each plan gets its own top-level thread and worktree: a **Lead** (advisor model, or `-l`) that has an executor (Sonnet 5.5, or `-e`) write the code and reviews every step. A **Master** thread oversees them all, reviews each finished plan, and posts a progress digest every 2 minutes. The user watches only Master, and can still steer any plan thread directly. Nobody asks the user anything mid-run; defaults are logged for one confirm-or-change pass at the end. Uses the project's `rules/parallel-runs.md` hooks for per-plan devices, build isolation and locks. Requires T3 Code orchestration tools; without them, falls back to sequential `execute`. With a single plan, prefer `execute`. **Read [references/orchestrate.md](references/orchestrate.md) before starting.**
 - `reconcile` → process what happened since last session: verify DONE plans, investigate BLOCKED ones, refresh drifted TODOs, retire dead findings. See [references/closing-the-loop.md](references/closing-the-loop.md).
@@ -136,6 +137,7 @@ Any invocation can pick the model for each role, e.g. `execute 123 -a opus -e ha
 | `-a <model>` / `--advisor` | Advisor: audits, writes plans, reviews `execute`; Master in `orchestrate` | this session's model |
 | `-l <model>` / `--lead` | Lead: the per-plan reviewing thread in `orchestrate` | the advisor model (same as `-a`, or this session's) |
 | `-e <model>` / `--executor` | Executor: writes the code in `execute` and `orchestrate` | `sonnet` (Sonnet 5.5) |
+| `-s <model>` / `--scout` | Scout: read-only gathering and mechanical checks (see "Scouts" below); `-s off` turns scouts off | `haiku` (Haiku 5.5) |
 
 **Values.** A family name (`opus`, `sonnet`, `haiku`, `fable`) means the latest model in that family. A family plus version (`opus 5.5`, `opus-5.5`) means that exact model; a version token right after the family belongs to the flag. A full model ID (`claude-opus-5-5`) or another provider's model listed by `orchestrator_capabilities` also works. Resolve every value against `orchestrator_capabilities` when the T3 tools exist. If a value matches no available model, stop and list the ones that exist — never substitute a different model. The older positional form (`execute 003 haiku`) still means `-e haiku`.
 
@@ -144,8 +146,33 @@ Any invocation can pick the model for each role, e.g. `execute 123 -a opus -e ha
 - `-a` — the advisor is this session. If it already runs that model, carry on. If not, hand off: in T3 Code, `t3_thread_launch` a thread with `modelSelection` set to the resolved model, bound to this checkout (`existing_worktree`, or `root` in the main checkout), whose `message` is the same invocation without `-a`; tell the user in one line to switch to it, and stop. Without T3, tell the user to switch with `/model` and re-run, and stop. In `orchestrate`, no hand-off: preflight runs here and `-a` sets Master's `modelSelection`.
 - `-l` — `orchestrate` only: sets each plan thread's `modelSelection`. `execute` has no separate Lead (the advisor reviews), so say in one line that `-l` is ignored there and in every other variant.
 - `-e` — for a bare Claude family name, use the Agent tool's `model` parameter. For a specific version or a non-Claude model, use `delegate_task` with `target` (provider instance and model) from `orchestrator_capabilities`. Ignored by variants that dispatch no executor.
+- `-s` — dispatched the same way as `-e`. With `-s off`, the role that would have dispatched the scout does the work itself.
 
-State the resolved models in one line before dispatching anything (`advisor opus 5.5 · lead sonnet 5.5 · executor haiku 5.5`), and record them in the plan index's notes for `execute` or in `state.json` for `orchestrate`.
+State the resolved models in one line before dispatching anything (`advisor opus 5.5 · lead sonnet 5.5 · executor sonnet 5.5 · scout haiku 5.5`), and record them in the plan index's notes for `execute` or in `state.json` for `orchestrate`.
+
+## Scouts
+
+A scout is a cheap, read-only subagent (`-s`, default Haiku 5.5) that does work with a clear ending, so the advisor, Lead and Master spend their reading on decisions. **Scouts gather evidence; they never decide.** Verdicts, vetting, plan writing and code review stay with the role that dispatched the scout.
+
+| Where | Scout's job | Stays with the dispatcher |
+|---|---|---|
+| Audit (Phase 2) | Categories audited at "medium" breadth (the table above) | "very thorough" categories, on the advisor model; all vetting |
+| `plan <description>` | An evidence packet: relevant files, current behavior, existing tests, unknowns | Opening every cited file before writing the plan (Phase 4 rule) |
+| `review-plan` | The fresh-context cold read: execute the plan on paper as the weakest executor and list every point where it would stall, guess or need context the plan lacks | Judging the gaps and tightening the plan |
+| `execute` / Lead step review | Run the done criteria and scope check; map each diff hunk to a plan step | Reading the diff and tests; the verdict |
+| `orchestrate` digest | Gather ledger events, thread activity and load; draft the digest lines | Posting it, nudges, any state change |
+| `reconcile` | Drift checks; cheap done-criteria spot checks on DONE plans | REJECTED / refresh / rewrite decisions |
+
+Every scout brief contains: the one question it answers, the absolute paths it may read, a cap on findings (default 8 lines, raised when the evidence needs it), Hard Rules 4 and 6 verbatim, and this preamble:
+
+> You are a read-only scout. Answer only the question below. Do not edit any
+> file. For every finding give a `file:line` or symbol and why it matters.
+> Label each line OBSERVED (you read it, or a command printed it) or GUESS.
+> When you run a command, return its exit code and the last lines of its
+> output verbatim; never summarize a result as "passes". List what you could
+> not find or check under UNKNOWN. Stop once the question is answered.
+
+Treat a scout report as leads, never as facts: confirm OBSERVED lines before acting on them. For commands, re-run any that the scout reports failed, ambiguous or surprising, plus one passing command as a spot check; if the spot check disagrees, re-run them all. If a scout returns nothing usable or contradicts the code, do the job yourself and don't re-dispatch.
 
 ## Tone of the output
 

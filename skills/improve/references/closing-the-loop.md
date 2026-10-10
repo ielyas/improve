@@ -61,8 +61,8 @@ Note on fresh worktrees: they share git history but not `node_modules` or build 
 
 Review like a tech lead reviewing a PR against the spec — never fix anything yourself:
 
-1. **Re-run every done criterion** in the worktree. Don't trust the executor's report — verify.
-2. **Scope compliance**: `git -C <worktree> diff --stat` against the plan's in-scope list. Any file outside scope fails review, full stop.
+1. **Re-run every done criterion** in the worktree. Don't trust the executor's report — verify. Dispatch a scout (`-s`, see "Scouts" in SKILL.md) to run them and return exit codes and output tails verbatim, then follow the scout re-run rule there.
+2. **Scope compliance**: `git -C <worktree> diff --stat` against the plan's in-scope list. Any file outside scope fails review, full stop. The same scout maps each diff hunk to a plan step and lists any hunk it can't map; you decide what those are.
 3. **Read the full diff.** Judge it against "Why this matters" (does it solve the actual problem, as production code rather than a prototype or stub, unless the plan's Type is Spike?) and the repo conventions named in the plan (does it look like the rest of the codebase?).
 4. **Audit the new tests.** Executors game criteria — a test that asserts nothing meaningful passes `pnpm test` and proves nothing. Read what the tests assert.
 
@@ -82,7 +82,7 @@ Running verification commands inside the executor's worktree is fine — it's is
 
 ## `reconcile` — keep `plans/` alive
 
-Process what happened since the last session. Read `plans/README.md` and every plan file, then per status:
+Process what happened since the last session. Read `plans/README.md` and every plan file. Hand the mechanical part to one scout: drift checks for every TODO plan and the cheap done-criteria spot checks for DONE plans, returned as one line per plan. Then decide per status:
 
 - **DONE** — spot-check that the done criteria still hold on the current HEAD (cheap ones only). Mark verified in the index. Don't delete plan files — they're the record.
 - **BLOCKED** — read the reason. Investigate the underlying obstacle in the codebase. Either rewrite the plan around it (new number if the approach changed fundamentally, in-place refresh otherwise) or mark REJECTED with one line of rationale.
