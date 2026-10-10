@@ -39,6 +39,7 @@ Model flags (`-a`, `-l`, `-e`, `-s`) are defined in SKILL.md under "Model flags"
 
 ## Phase 1 — Preflight (invoking thread)
 
+0. **Name this thread.** Rename the invoking thread with `t3_thread_update` (`action:"rename"`, no `threadId`) to `SETUP MASTER: <plans>`, using the same `<plans>` text as Master's title. Its job is setup only, and the name tells it apart from Master in the thread list.
 1. **Parse the plan list.** Read each plan file and `plans/README.md`, including any run-order table.
    - If one named plan depends on another named plan, it waits: it launches only after its parent is APPROVED, with `baseRef` set to the parent's branch.
    - If a dependency outside the set isn't DONE, drop that plan from the run and say why.
@@ -61,7 +62,7 @@ mkdir -p "$LEDGER/locks" && touch "$LEDGER/events.log"
    Also write the **build throttle** into the ledger (see [Build throttle](#build-throttle)) before any plan launches. Every Lead brief tells the Lead to use it from its first build.
 
 6. **Launch Master** with `t3_thread_launch`:
-   - `title`: `Master — <plans>`.
+   - `title`: `MASTER: <plans>` (capitals, as here; e.g. `MASTER: seedbox 170 172 173 + r2tor 091 092`).
    - `workspaceStrategy`: `{type:"existing_worktree", worktreePath:<this checkout>, branch:<current>}`, or `{type:"root"}` when the invoking thread is in the main checkout.
    - `modelSelection`: the resolved `-a` model, or omit it to inherit.
    - `message`: the **Master brief** (below), with the run ID, ledger path, plan list, dependency order, hooks text, base branch and the resolved Lead and executor models filled in.
