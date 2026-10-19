@@ -35,7 +35,7 @@ Works in any agent that supports [Agent Skills](https://agentskills.io) format. 
 /improve orchestrate <plans…>   run several plans in parallel under a Master thread
 /improve reconcile              refresh the backlog: verify, unblock, retire
 /improve ... --issues           also publish plans as GitHub issues
-/improve ex 019 -on             run while you're away: ask first, wait for go, morning report
+/improve ex 019 --overnight     run while you're away (short -on): ask first, wait for go, morning report
 /improve ... -a opus -l sonnet -e sonnet -s haiku   pick advisor, lead, executor and scout models
 ```
 

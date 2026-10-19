@@ -22,10 +22,10 @@ Do all of this before any executor, Lead or Master starts:
 
 - **Keep the Mac awake** for the whole run, not just the builds:
   ```
-  caffeinate -ims -t <seconds> &   # display may sleep; seconds = 2 × the high estimate, at least 8 h
+  caffeinate -ims -t <seconds> &   # display may sleep; seconds from the rule below
   echo $! > <ledger or plans dir>/caffeinate.pid
   ```
-  Record the PID in `state.json` (`orchestrate`) or the plan index notes (`execute`). Say in one line that it's running and for how long. Add 5 h to `-t` to cover one usage-limit wait (§3).
+  Record the PID in `state.json` (`orchestrate`) or the plan index notes (`execute`). Say in one line that it's running and for how long. Set `-t` to the larger of 2 × the high estimate and 8 h, plus 5 h for one usage-limit wait (§3). Example: high estimate 3 h → max(6 h, 8 h) + 5 h = 13 h = `-t 46800`.
 - **Start the heartbeat** so the run survives a usage limit or a dropped connection. A model that's out of usage can't wake itself up, so the app's scheduler has to.
   - `orchestrate`: the 30-minute digest is the heartbeat. Add the resume check below to its prompt.
   - `execute`: create one with `schedule_task` (`{type:"interval", everyMs:1800000}`, `bindToCurrentThread:true`, title `<plan> overnight heartbeat`). Its prompt is the resume check. Store the `scheduledTaskId` in the plan index notes.
