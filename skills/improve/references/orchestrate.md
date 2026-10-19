@@ -61,6 +61,8 @@ mkdir -p "$LEDGER/locks" && touch "$LEDGER/events.log"
 
    Also write the **build throttle** into the ledger (see [Build throttle](#build-throttle)) before any plan launches. Every Lead brief tells the Lead to use it from its first build.
 
+5b. **Overnight (`-on`).** Run the preflight in [overnight.md](overnight.md) §1 here, in the invoking thread, and wait for `go` before launching Master. Then start `caffeinate` (§2) and put `overnight: true`, the approvals and the caffeinate PID in `state.json`.
+
 6. **Launch Master** with `t3_thread_launch`:
    - `title`: `MASTER: <plans>` (capitals, as here; e.g. `MASTER: seedbox 170 172 173 + r2tor 091 092`).
    - `workspaceStrategy`: `{type:"existing_worktree", worktreePath:<this checkout>, branch:<current>}`, or `{type:"root"}` when the invoking thread is in the main checkout.
@@ -84,7 +86,7 @@ For each plan that is ready to start:
 3. Follow the project's tracker rule: set the plan's task to In progress, and its index row to IN PROGRESS.
 
 Then **create the digest automation** with `schedule_task`:
-- `schedule`: `{type:"interval", everyMs:120000}`.
+- `schedule`: `{type:"interval", everyMs:120000}`. With `-on`, use `everyMs:1800000` (30 minutes), and append the resume check from [overnight.md](overnight.md) §3 to the digest prompt.
 - `bindToCurrentThread`: `true` (it must post into Master).
 - `title`: `<RUN_ID> digest`.
 - `prompt`: the **Digest prompt** (below).
@@ -198,7 +200,7 @@ When every plan is APPROVED, BLOCKED or REJECTED:
 
 1. **Delete the digest automation** (`delete_scheduled_task`) and remove its ID from `state.json`.
 2. **Re-check the defaults.** Read every `NNN-defaults.md` against the project's documented decisions, and flip anything that contradicts one, through that plan's Lead.
-3. Run the hooks' **final verification**: the full suite per branch, plus any device installs the project wants. Device installs always go through the hooks' device lock, and the report names whose build is going onto which device.
+3. Run the hooks' **final verification**: the full suite per branch, plus any device installs the project wants. Device installs always go through the hooks' device lock, and the report names whose build is going onto which device. With `-on`, skip device installs and list them as owner checks; then follow [overnight.md](overnight.md) §4.
 4. **Report**, in the project's or user's preferred report format:
    - per plan: verdict, branch, worktree path, a one-line diff summary, and rebase notes;
    - one **confirm or change** list of every default;
@@ -223,7 +225,7 @@ Then **tear down** what this run created, and nothing else:
 > Project hooks: `<inlined text or "none: generic defaults">`.
 > Models: Lead `<-l model, else the advisor model>`, executor `<-e model, default sonnet>`, scout `<-s model, default haiku>`.
 >
-> You never edit source code. You launch one plan thread per plan, create the 2-minute digest automation, review each READY FOR REVIEW, and write the final report. Never ask the user questions mid-run. The user watches only this thread: keep every message short.
+> You never edit source code. You launch one plan thread per plan, create the 2-minute digest automation, review each READY FOR REVIEW, and write the final report. Never ask the user questions mid-run. Overnight run: `<yes|no>`. If yes, follow `references/overnight.md` §3 (path: `<absolute path>`): no physical devices, leave live data alone, stop blocked work instead of working around it. The user watches only this thread: keep every message short.
 
 ## Lead brief (template)
 
@@ -234,7 +236,7 @@ Then **tear down** what this run created, and nothing else:
 > - Project hooks: `<inlined>`.
 > - Run every heavy build or test, yours and your executor's, through `<LEDGER>/build-slot.sh <command>` (shared slots; waiting is not a stall).
 >
-> You never write code yourself. A `<executor model>` executor subagent does, and you review every step. A `<scout model>` scout runs each step's checks for you (see "Scouts" in the improve SKILL.md); the verdict is yours. The executor builds production code that ships, on every platform in scope — not a prototype or a handoff — unless the plan's Type is Spike. Never ask the user anything mid-run; log defaults instead. If the user writes in this thread, treat it as an owner change.
+> You never write code yourself. A `<executor model>` executor subagent does, and you review every step. A `<scout model>` scout runs each step's checks for you (see "Scouts" in the improve SKILL.md); the verdict is yours. The executor builds production code that ships, on every platform in scope — not a prototype or a handoff — unless the plan's Type is Spike. Never ask the user anything mid-run; log defaults instead. Overnight run: `<yes|no>`. If yes, follow `references/overnight.md` §3 (path: `<absolute path>`): no physical devices, leave live data alone, stop blocked work instead of working around it. If the user writes in this thread, treat it as an owner change.
 >
 > The plan:
 >
@@ -245,3 +247,4 @@ Then **tear down** what this run created, and nothing else:
 - **A launch fails, or its response is lost:** check `t3_thread_list` before retrying, because the thread may already exist.
 - **A plan thread dies or keeps stalling:** Master reads its last activity, sends one message to resume it, and on a second failure marks the plan BLOCKED with the evidence.
 - **The tools disappear mid-run:** Master finishes reviewing what's in flight and reports. It never relaunches plans as subagents in its own thread.
+- **A usage limit or a dropped connection** is a pause, not a failure. Don't count it toward the two-failure BLOCK rule. With `-on`, the digest's resume check restarts the thread after the reset; see [overnight.md](overnight.md) §3.
