@@ -18,6 +18,8 @@ The founding rule survives unchanged: **the advisor never edits source code.** I
 
 ### Dispatch
 
+**Overnight (`-on`).** Before creating the worktree, run the preflight in [overnight.md](overnight.md) §1 and wait for `go`; then §2, which includes creating the heartbeat that resumes the run after a usage limit. Add §3's rules to the executor prompt, after the preamble: no physical devices, leave live data alone, stop at a STOP condition rather than work around it. A BLOCK verdict overnight is reported in the morning, not asked about. Finish with §4.
+
 Executor model: default `sonnet` (Sonnet 5.5); use `-e <model>` if the user passed one (`execute 003 -e haiku`; the older `execute 003 haiku` means the same). The reviewer is this session, on the `-a` model; see "Model flags" in SKILL.md for resolving values and the hand-off when `-a` differs from this session's model. `-l` has no effect here.
 
 **Make the worktree yourself** — `isolation: "worktree"` has lost its working-directory context mid-run and always branches from the default branch, not the one holding the plans:
