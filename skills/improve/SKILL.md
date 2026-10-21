@@ -94,13 +94,13 @@ Plans go in:
 ```
 plans/
   README.md          ← index: priority order, dependency graph, status table
-  001-<slug>.md
+  001-X-<slug>.md    ← done and merged (renamed with -X-; see plan-template.md "File naming")
   002-<slug>.md
 ```
 
 **Excerpts come from your own reads, never from a subagent's report.** Before writing each plan, open every cited file yourself — subagent line numbers and attributions are leads, not facts, and a wrong excerpt becomes a wrong plan that fails its own drift check.
 
-Before writing anything: record `git rev-parse --short HEAD` — every plan stamps the commit it was written against (the executor uses it for drift detection). If `plans/` already exists from a previous run, **reconcile, don't duplicate**: read `plans/README.md`, keep numbering monotonic, skip findings already planned or listed as rejected, and mark superseded plans stale in the index. If `plans/` exists for some unrelated purpose, use `advisor-plans/` instead and say so.
+Before writing anything: record `git rev-parse --short HEAD` — every plan stamps the commit it was written against (the executor uses it for drift detection). If `plans/` already exists from a previous run, **reconcile, don't duplicate**: read `plans/README.md`, backfill the done-plan rename (`NNN-X-slug.md`, see the plan template's file naming), keep numbering monotonic, skip findings already planned or listed as rejected, and mark superseded plans stale in the index. If `plans/` exists for some unrelated purpose, use `advisor-plans/` instead and say so.
 
 Write each plan **for the weakest plausible executor**. That means:
 

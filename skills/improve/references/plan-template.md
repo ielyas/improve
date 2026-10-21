@@ -10,6 +10,10 @@ Three properties make a plan executable by a weaker model:
 
 File naming: `plans/NNN-short-slug.md`, numbered in recommended execution order.
 
+**Done plans are renamed `NNN-X-short-slug.md`.** When a plan's work is merged and its index row becomes DONE, `git mv` the file to insert `-X-` after the number (`007-watchlist-redesign.md` → `007-X-watchlist-redesign.md`), then `git grep` the old filename and update every link to it (the index, other plans, trackers, docs). Same commit as the status change. The number never changes, so "plan 007" still finds it. A plan marked DONE before merge (e.g. an `execute` APPROVE awaiting the user's merge) keeps its name until the merge lands.
+
+**Backfill:** any run that reads an existing `plans/` (planning, `reconcile`, `execute`, `orchestrate`, merges) first checks for DONE rows whose file lacks the `-X-` marker and renames them the same way, with links updated. Report the renames in one line. If the index says DONE but the work isn't on the default branch, leave it and flag it instead.
+
 ---
 
 ## Template

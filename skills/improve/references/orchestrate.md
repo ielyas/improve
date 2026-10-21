@@ -208,7 +208,7 @@ When every plan is APPROVED, BLOCKED or REJECTED:
 
 ## Phase 5 — Merge (only when the user says so)
 
-Never merge, push or deploy on your own. When the user says `merge` in Master, follow the project's merge routine for each APPROVED plan, in dependency order. Typically that is: merge into the base branch, resolve conflicts, update the index and trackers, and mark tasks done.
+Never merge, push or deploy on your own. When the user says `merge` in Master, follow the project's merge routine for each APPROVED plan, in dependency order. Typically that is: merge into the base branch, resolve conflicts, update the index and trackers, rename each merged plan to `NNN-X-<slug>.md` with its links updated (plan template, "File naming"), and mark tasks done.
 
 Then **tear down** what this run created, and nothing else:
 - the hooks' teardown (for example, delete the plan's simulators);
