@@ -1,6 +1,6 @@
 # improve
 
-> Fork of [shadcn/improve](https://github.com/shadcn/improve) adding `orchestrate` (parallel multi-plan runs in T3 Code), hand-made executor worktrees, `-a`/`-l`/`-e` flags to pick the advisor, lead and executor models, and Haiku scouts (`-s`) for gathering and checks. Upstream: `git fetch upstream && git merge upstream/main`.
+> Fork of [shadcn/improve](https://github.com/shadcn/improve) adding `orchestrate` (parallel multi-plan runs in T3 Code), hand-made executor worktrees, `--overnight` unattended runs, `-a`/`-l`/`-e` flags to pick the advisor, lead and executor models, Haiku scouts (`-s`) for gathering and checks, and `-X-`/`-C-` file names for done and cancelled plans. Upstream: `git fetch upstream && git merge upstream/main`.
 
 An agent skill that audits any codebase and writes implementation plans for other agents to execute.
 
@@ -86,6 +86,18 @@ Picking #1 produced [this plan](./examples/001-extract-shadow-config-resolution.
 
 **Plan.** One file per selected finding, written into `plans/` with an index, priority order, and dependency graph.
 
+**File names.** Plans are `plans/NNN-short-slug.md`, numbered in execution order. The number never changes, so "plan 007" always finds it. The status shows in the name:
+
+```
+plans/
+  README.md                  index: order, dependencies, status
+  007-X-watchlist-redesign.md   done and merged (-X-)
+  012-C-sleep-timer.md          cancelled by you (-C-)
+  014-quick-open.md             todo, parked, superseded or rejected
+```
+
+The rename happens in the same commit as the status change, with every link to the old name updated. A plan's companion files (`NNN-review.md`) take the same letter. Any run that reads an existing `plans/` backfills missing `-X-` and `-C-` names first.
+
 ## What makes the plans executable
 
 Plans are written for the weakest plausible executor — a model that has never seen the advisor session and may be much smaller. Three properties carry that:
@@ -101,7 +113,9 @@ Each plan also stamps the git commit it was written against, so executors run a 
 Plans aren't fire-and-forget:
 
 - **`execute <plan>`** spawns a cheaper executor subagent in an isolated git worktree, hands it the plan, then reviews the result like a tech lead — re-runs every done criterion, checks scope compliance, reads the diff against intent. Verdict: approve (merging stays your call), send back for revision (max 2 rounds), or block and refine the plan.
-- **`reconcile`** processes what happened since: verifies DONE plans still hold, investigates BLOCKED ones and rewrites around the obstacle, refreshes drifted plans, retires findings that got fixed independently.
+- **`orchestrate <plans…>`** (short `orc`) runs several plans in parallel in T3 Code. Each plan gets its own thread, worktree and devices: a **Lead** (advisor model, `-l`) has an executor (Sonnet 5.5, `-e`) write each step and reviews it before the next. A **Master** thread launches the plans, reviews each finished one, and posts a progress digest every 2 minutes. You watch Master only, and can still steer any plan thread directly. Nobody asks you anything mid-run; defaults are logged for one confirm-or-change pass at the end. Merging still waits for you. Without the T3 tools it falls back to `execute` on each plan in turn.
+- **`--overnight`** (short `-on`, on `execute` or `orchestrate`) is for when you leave. Before you say `go`, it estimates the run, asks every approval and open question one at a time, and checks power. After `go` it asks nothing: it keeps the Mac awake, stays off physical devices and live data, never merges, pushes or deploys, stops a blocked plan instead of working around it, and leaves a morning report.
+- **`reconcile`** processes what happened since: verifies DONE plans still hold, renames done and cancelled plans that lack `-X-` or `-C-`, investigates BLOCKED ones and rewrites around the obstacle, refreshes drifted plans, retires findings that got fixed independently.
 - **`--issues`** publishes plans as GitHub issues — same self-contained body, so any agent or human can pick them up where work already lives.
 
 ## Hard rules
