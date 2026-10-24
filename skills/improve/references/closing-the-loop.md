@@ -87,6 +87,7 @@ Running verification commands inside the executor's worktree is fine — it's is
 Process what happened since the last session. Read `plans/README.md` and every plan file. Hand the mechanical part to one scout: drift checks for every TODO plan and the cheap done-criteria spot checks for DONE plans, returned as one line per plan. Then decide per status:
 
 - **DONE** — spot-check that the done criteria still hold on the current HEAD (cheap ones only). Mark verified in the index. If the file isn't yet named `NNN-X-<slug>.md` and the work is merged, rename it and update every link (plan template, "File naming"). Don't delete plan files — they're the record.
+- **CANCELLED** — the user cancelled it. If the file isn't yet named `NNN-C-<slug>.md`, rename it and update every link. Never re-plan or re-raise it.
 - **BLOCKED** — read the reason. Investigate the underlying obstacle in the codebase. Either rewrite the plan around it (new number if the approach changed fundamentally, in-place refresh otherwise) or mark REJECTED with one line of rationale.
 - **IN PROGRESS** (stale) — flag it to the user; an executor probably died mid-run. Check the worktree if one exists.
 - **TODO** — run the drift check. If drifted: re-verify the finding still exists (it may have been fixed in passing), then refresh the "Current state" excerpts and `Planned at` SHA. If the finding is gone, mark REJECTED ("fixed independently").
